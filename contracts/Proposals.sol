@@ -1,99 +1,58 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.4.22 <0.9.0;
 import "./Voters.sol";
+import "./Ownable.sol";
+import "./functools.sol";
 
-contract Proposals is Voters {
-    bool public openForPrposal;
+contract Proposals is Voters, Ownable, functools {
+    uint256 counter;
 
-    // functions
-    // *******************************************************************
-    // *******************************************************************
-    // *******************************************************************
-    // *******************************************************************
+    function submitTopic(string memory topic) public onlyOwner {
+        openForProposal[topic] = true;
+        topicsOnAgenda[counter] = topic;
+        counter += 1;
+    }
 
-    function SubmitProposal(
+    function removeTopic(uint256 index) public onlyOwner {
+        require(index <= counter, "out of range index");
+        topicsOnAgenda[index] = "topic removed.";
+    }
+
+    function submitProposal(
         string memory topic,
         string memory dateProposed,
         string memory proposal
-    ) public isRegistered proposalsAllowed {
-        Proposition[] storage proposedProposals = proposalsPutForward[topic];
+    ) public isRegistered proposalsAllowed(topic) {
+        proposalsPutForward[msg.sender][topic] = Proposition({
+            proposition: proposal,
+            proposedBy: msg.sender,
+            dateProposed: dateProposed
+        });
 
-        for (uint256 i = 0; i < proposedProposals.length; i++) {
-            if (proposedProposals[i].proposedBy == msg.sender) {
-                proposedProposals[i].propositions.push(proposal);
-                proposedProposals[i].dateProposed = dateProposed;
-                proposalsPutForward[topic] = proposedProposals;
-                emit ProposalsUpdated(
-                    msg.sender,
-                    "you've put forward another proposal"
-                );
-
-                return;
-            }
-        }
-
-        string[] memory proposals;
-        proposals[0] = proposal;
-
-        proposedProposals.push(
-            Proposition({
-                propositions: proposals,
-                proposedBy: msg.sender,
-                picked: false,
-                dateProposed: dateProposed,
-                datePicked: "N/A",
-                votedForBy: 0
-            })
-        );
+        putForwardProposal[msg.sender] = true;
         emit newProposal(msg.sender, "you've put forward a new proposal");
     }
 
-    function approvedProposal(
-        string memory topic_ // returns ( //     uint256 votes, //     string memory proposedBy, //     string memory proposal // )
-    ) public view {
-        address[] memory voters = votedForTopic[topic_];
-
-        for (uint256 i = 0; i <= voters.length; i++) {
-            VotedFor[] memory proposalsVotedFor = votedForProposals[voters[i]];
-
-            for (uint256 j = 0; j <= proposalsVotedFor.length; j++) {
-                // if(proposalsVotedFor[j][topic_] == topic_){
-                // }
-            }
-        }
+    function readProposition(address candidate, string memory topic)
+        public
+        view
+        returns (string memory)
+    {
+        return proposalsPutForward[candidate][topic].proposition;
     }
 
-    // modifiers
-    // *******************************************************************
-    // *******************************************************************
-    // *******************************************************************
-    // *******************************************************************
-
-    modifier proposalsAllowed() {
+    modifier proposalsAllowed(string memory topic) {
         require(
-            openForPrposal == true,
+            openForProposal[topic] == true,
             "Due date for proposal acceptence is closed."
         );
         _;
     }
-
-    // structs
-    // *******************************************************************
-    // *******************************************************************
-    // *******************************************************************
-    // *******************************************************************
-
-    // mappings
-    // *******************************************************************
-    // *******************************************************************
-    // *******************************************************************
-    // *******************************************************************
-
-    //  events
-    // *******************************************************************
-    // *******************************************************************
-    // *******************************************************************
-    // *******************************************************************
+    mapping(string => bool) public openForProposal;
+    mapping(uint256 => string) public topicsOnAgenda;
+    mapping(address => bool) public putForwardProposal;
+    mapping(address => mapping(string => Proposition))
+        internal proposalsPutForward;
 
     event newProposal(address indexed candidate, string indexed message);
     event ProposalsUpdated(address indexed candiate, string indexed message);

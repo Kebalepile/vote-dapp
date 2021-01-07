@@ -4,12 +4,7 @@ pragma solidity >=0.4.22 <0.9.0;
 contract Voters {
     uint256 public numberOfVoters;
 
-    // functions
-    // *******************************************************************
-    // *******************************************************************
-    // *******************************************************************
-    // *******************************************************************
-    function Register(address candidate) public isRegisteredNot(candidate) {
+    function register(address candidate) public isRegisteredNot(candidate) {
         registeredVoter[candidate] = true;
         numberOfVoters += 1;
         emit voterRegistered(candidate);
@@ -18,39 +13,45 @@ contract Voters {
     function vote(
         string memory topic,
         address proposedBy,
-        uint256 number,
-        string memory dateVoted
+        string memory date
     ) public isRegistered alreadyVotedForTopic(topic) {
-        Proposition[] storage proposedProposals = proposalsPutForward[topic];
+        votedForProposals[msg.sender].push(
+            Voted({
+                topic: topic,
+                voteCount: 1,
+                proposedBy: proposedBy,
+                dateVoted: date,
+                viaProxy: false
+            })
+        );
 
-        for (uint256 i = 0; i < proposedProposals.length; i++) {
-            if (proposedProposals[i].proposedBy == proposedBy) {
-                proposedProposals[i].votedForBy += 1;
-                votedForProposals[msg.sender].push(
-                    VotedFor({
-                        topic: topic,
-                        voteCount: 1,
-                        proposalNumber: number,
-                        proposedBy: proposedProposals[i].proposedBy,
-                        dateVoted: dateVoted,
-                        viaProxy: false
-                    })
-                );
-
-                votedForTopic[topic].push(msg.sender);
-
-                emit votedForProposal(msg.sender, "you've voted.", topic);
-
-                return;
-            }
-        }
+        castedVoteInFavourOf[msg.sender][topic] = proposedBy;
+        votedOnTopic[msg.sender][topic] = true;
+        emit votedForProposal(msg.sender, "you've voted.", topic);
     }
 
-    // modefiers
-    // *******************************************************************
-    // *******************************************************************
-    // *******************************************************************
-    // *******************************************************************
+    function voted(address addr, string memory topic)
+        public
+        view
+        returns (bool)
+    {
+        return votedOnTopic[addr][topic];
+    }
+
+    function votedFor(address candidate, string memory topic)
+        public
+        view
+        returns (address addr)
+    {
+        require(registeredVoter[candidate] == true, "candidate not registered");
+
+        require(
+            votedOnTopic[candidate][topic] == true,
+            "candidate did not vote on topic"
+        );
+        addr = castedVoteInFavourOf[candidate][topic];
+    }
+
     modifier isRegisteredNot(address candidate) {
         require(
             registeredVoter[candidate] == false,
@@ -67,56 +68,35 @@ contract Voters {
         _;
     }
     modifier alreadyVotedForTopic(string memory topicName) {
-        bool votedFor;
+        bool _voted = votedOnTopic[msg.sender][topicName];
 
-        address[] memory voters = votedForTopic[topicName];
-        for (uint256 i = 0; i <= voters.length; i++) {
-            if (voters[i] == msg.sender) {
-                votedFor = true;
-                break;
-            }
-        }
-        require(votedFor == false, "alread voted for a proposal");
+        require(_voted == false, "alread voted for a proposal");
         _;
     }
-    // structs
-    // *******************************************************************
-    // *******************************************************************
-    // *******************************************************************
-    // *******************************************************************
+
     struct Proposition {
-        string[] propositions;
+        string proposition;
         address proposedBy;
-        bool picked;
-        uint256 votedForBy;
         string dateProposed;
-        string datePicked;
     }
-    struct VotedFor {
+    struct Voted {
         string topic;
         uint256 voteCount;
-        uint256 proposalNumber;
         address proposedBy;
         string dateVoted;
         bool viaProxy;
     }
 
-    // mappings
-    // *******************************************************************
-    // *******************************************************************
-    // *******************************************************************
-    // *******************************************************************
-    mapping(address => bool) internal registeredVoter;
-    mapping(string => address[]) public votedForTopic;
-    mapping(string => Proposition[]) public proposalsPutForward;
-    mapping(address => VotedFor[]) public votedForProposals;
+    mapping(address => bool) public registeredVoter;
 
-    // events
-    // *******************************************************************
-    // *******************************************************************
-    // *******************************************************************
-    // *******************************************************************
+    mapping(address => mapping(string => bool)) internal votedOnTopic;
+
+    mapping(address => Voted[]) public votedForProposals;
+
+    mapping(address => mapping(string => address))
+        internal castedVoteInFavourOf;
 
     event voterRegistered(address indexed voter);
-    event votedForProposal(address, string, string);
+    event votedForProposal(address voter, string message, string topicVotedOn);
+   
 }

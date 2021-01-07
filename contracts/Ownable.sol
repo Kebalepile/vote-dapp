@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.4.22 <0.9.0;
-import "./Proxy.sol";
 
-contract Ownable is Proxy {
+contract Ownable  {
     address public owner;
 
     constructor() public {
@@ -10,7 +9,7 @@ contract Ownable is Proxy {
     }
 
     modifier onlyOwner {
-        require(msg.sender == owner);
+        require(msg.sender == owner,"only Contract owner is authorized");
         _;
     }
 }
